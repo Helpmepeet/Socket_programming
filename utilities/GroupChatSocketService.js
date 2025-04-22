@@ -4,6 +4,8 @@ const {
   getMongoGroupByName,
   existMongoGroupHavingGroupName,
   getMongoGroupByChatId,
+  joinMongoGroupChat,
+  getGroupsForUser,
 } = require("../mongo_services/GroupChatMongoService");
 
 const {
@@ -61,6 +63,11 @@ class GroupChatService {
     socket.on("joinGroup", ({ groupId, userId }) =>
       this.joinGroup(groupId, userId)
     );
+
+    socket.on("get_my_groups", async (userId) => {
+      const groups = await getGroupsForUser(userId);
+      socket.emit("my_groups", groups);
+    });
   }
 
   getGroups() {
@@ -183,8 +190,8 @@ class GroupChatService {
     });
   }
 
-  joinGroup(groupId, userId) {
-    joinMongoGroupChat(groupId, userId)
+  joinGroup(groupName, userId) {
+    joinMongoGroupChat(groupName, userId)
       .then((group) => {
         if (!group) {
           this.socket.emit("join_group_response", {

@@ -44,8 +44,8 @@ async function existMongoGroupChatById(groupId) {
   return !!group;
 }
 
-async function joinMongoGroupChat(groupId, userId) {
-  const group = await GroupChat.findById(groupId);
+async function joinMongoGroupChat(groupName, userId) {
+  const group = await GroupChat.findOne({ name: groupName });
   if (!group) throw new Error("Group not found");
 
   // ป้องกันการ join ซ้ำ
@@ -57,6 +57,10 @@ async function joinMongoGroupChat(groupId, userId) {
   return group;
 }
 
+async function getGroupsForUser(userId) {
+  return GroupChat.find({ members: userId }).populate("members");
+}
+
 module.exports = {
   createMongoGroupChat,
   getMongoGroupChats,
@@ -66,4 +70,5 @@ module.exports = {
   existMongoGroupHavingGroupName,
   existMongoGroupChatById,
   joinMongoGroupChat,
+  getGroupsForUser,
 };

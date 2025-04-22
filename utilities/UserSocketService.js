@@ -211,50 +211,72 @@ class UserService {
 
   updateMe(updateInfo) {
     const { myUserId, username, profileImage } = updateInfo;
-    existMongoUserHavingUsername({
-      user_id: myUserId,
-      username: username,
-    }).then((result) => {
-      if (result) {
+
+    // ตรวจสอบว่า username มีการใช้งานแล้วหรือไม่
+    existMongoUserHavingUsername(username)
+      .then((result) => {
+        if (result) {
+          this.socket.emit("update_user_response", {
+            message: "Username already in use", // ถ้าใช้งานแล้ว ส่งข้อความกลับ
+          });
+          return;
+        } else {
+          // ค้นหาผู้ใช้จาก user_id
+          getMongoUserById(myUserId)
+            .then((me) => {
+              if (me) {
+                // ตรวจสอบความยาวของ username
+                if (username.length < 1) {
+                  this.socket.emit("update_user_response", {
+                    message: "Username should be at least 1 character", // ถ้ายาวน้อยกว่า 1 ตัว
+                  });
+                  return;
+                }
+
+                if (username.length > 20) {
+                  this.socket.emit("update_user_response", {
+                    message: "Username should be at most 20 characters", // ถ้ายาวเกินกว่า 20 ตัว
+                  });
+                  return;
+                }
+
+                // ถ้าผ่านการตรวจสอบ, อัปเดตข้อมูลผู้ใช้
+                updateMongoUserById({
+                  user_id: myUserId,
+                  username: username,
+                  profile_image: profileImage,
+                })
+                  .then(() => {
+                    this.socket.emit("update_user_response", {
+                      message: "Success", // การอัปเดตสำเร็จ
+                    });
+                  })
+                  .catch((error) => {
+                    this.socket.emit("update_user_response", {
+                      message: "Error updating user data: " + error.message, // ถ้ามีข้อผิดพลาดในการอัปเดต
+                    });
+                  });
+              } else {
+                // ไม่พบ user_id ในฐานข้อมูล
+                this.socket.emit("update_user_response", {
+                  message: "Your user id is invalid", // แจ้งเตือนว่า user id ไม่ถูกต้อง
+                });
+              }
+            })
+            .catch((error) => {
+              // ถ้าหากการค้นหาผู้ใช้เกิดข้อผิดพลาด
+              this.socket.emit("update_user_response", {
+                message: "Error fetching user data: " + error.message,
+              });
+            });
+        }
+      })
+      .catch((error) => {
+        // ถ้ามีข้อผิดพลาดในการตรวจสอบ username
         this.socket.emit("update_user_response", {
-          message: "Username already in use",
+          message: "Error checking username: " + error.message,
         });
-        return;
-      } else {
-        getMongoUserById(myUserId).then((me) => {
-          if (me) {
-            // check at least username length
-            if (username.length < 1) {
-              this.socket.emit("update_user_response", {
-                message: "Username should be at least 1 character",
-              });
-              return;
-            }
-
-            // check at most username length
-            if (username.length > 20) {
-              this.socket.emit("update_user_response", {
-                message: "Username should be at most 20 characters",
-              });
-              return;
-            }
-
-            // valid userId & username and update user
-            updateMongoUserById({
-              user_id: myUserId,
-              username: username,
-              profile_image: profileImage,
-            });
-            this.socket.emit("update_user_response", { message: "Success" });
-          } else {
-            // cant find the user id
-            this.socket.emit("update_user_response", {
-              message: "Your user id is invalid",
-            });
-          }
-        });
-      }
-    });
+      });
   }
 }
 

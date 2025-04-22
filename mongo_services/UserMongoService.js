@@ -99,12 +99,25 @@ async function getMongoUserByChatId(ids) {
 }
 
 async function updateMongoUserById({ user_id, username, profile_image }) {
-  console.log({ user_id, username, profile_image });
-  await User.findOneAndUpdate(
-    { _id: user_id },
-    { username: username, profile_image: profile_image }
-  );
-  return;
+  try {
+    console.log({ user_id, username, profile_image });
+
+    // ใช้ findOneAndUpdate เพื่ออัปเดตข้อมูลผู้ใช้
+    const updatedUser = await User.findOneAndUpdate(
+      { _id: user_id },
+      { username: username, profile_image: profile_image },
+      { new: true } // ใช้ new: true เพื่อให้ return ผลลัพธ์ที่เป็นข้อมูลใหม่ที่อัปเดตแล้ว
+    );
+
+    if (!updatedUser) {
+      throw new Error("User not found");
+    }
+
+    return updatedUser; // คืนค่าผู้ใช้ที่ได้รับการอัปเดต
+  } catch (error) {
+    console.error("Error updating user:", error);
+    throw error; // ส่งต่อข้อผิดพลาดไปยังผู้เรียกฟังก์ชัน
+  }
 }
 
 module.exports = {
