@@ -45,11 +45,12 @@ async function existMongoGroupChatById(groupId) {
   return !!group;
 }
 
-async function joinMongoGroupChat(groupId, userId) {
-  const group = await GroupChat.findById(groupId);
+async function joinMongoGroupChat(groupName, userId) {
+  // Find the group by name instead of ID
+  const group = await GroupChat.findOne({ name: groupName });
   if (!group) throw new Error("Group not found");
 
-  // ป้องกันการ join ซ้ำ
+  // Prevent duplicate joins
   if (!group.members.includes(userId)) {
     group.members.push(userId);
     await group.save();

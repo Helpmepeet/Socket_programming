@@ -34,8 +34,8 @@ class GroupChatService {
     );
     socket.on("getDirectByChatId", (ids) => this.getDirectByChatId(ids));
     socket.on("getDirectByUserId", (ids) => this.getDirectByUserId(ids));
-    socket.on("joinGroup", ({ groupId, userId }) =>
-      this.joinGroup(groupId, userId)
+    socket.on("joinGroup", ({ groupName, userId }) =>
+      this.joinGroup(groupName, userId)
     );
     socket.on("get_my_groups", async (userId) => {
       const groups = await getGroupsForUser(userId);
@@ -184,8 +184,8 @@ class GroupChatService {
     });
   }
 
-  joinGroup(groupId, userId) {
-    joinMongoGroupChat(groupId, userId)
+  joinGroup(groupName, userId) {
+    joinMongoGroupChat(groupName, userId)
       .then((group) => {
         if (!group) {
           this.socket.emit("join_group_response", {
@@ -206,9 +206,6 @@ class GroupChatService {
           groupId: group._id,
           members: group.members,
         });
-
-        // Notify all clients that the group has been updated
-        this.sendGroup(group);
       })
       .catch((err) => {
         this.socket.emit("join_group_response", {
