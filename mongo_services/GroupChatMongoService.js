@@ -1,4 +1,5 @@
 const GroupChat = require("../models/GroupChat");
+const User = require("../models/User"); // Assuming you have a User model
 
 async function createMongoGroupChat(groupName, members) {
   await GroupChat.create({ name: groupName, members });
@@ -44,8 +45,8 @@ async function existMongoGroupChatById(groupId) {
   return !!group;
 }
 
-async function joinMongoGroupChat(groupName, userId) {
-  const group = await GroupChat.findOne({ name: groupName });
+async function joinMongoGroupChat(groupId, userId) {
+  const group = await GroupChat.findById(groupId);
   if (!group) throw new Error("Group not found");
 
   // ป้องกันการ join ซ้ำ
@@ -61,6 +62,43 @@ async function getGroupsForUser(userId) {
   return GroupChat.find({ members: userId }).populate("members");
 }
 
+// New function to get detailed information about group members
+async function getGroupMemberDetails(chatId) {
+  try {
+    // Find the group and get its members array
+    const group = await GroupChat.findById(chatId);
+
+    if (!group) {
+      throw new Error("Group not found");
+    }
+
+    // Get detailed information for each member
+    const memberPromises = group.members.map(async (memberId) => {
+      const user = await User.findById(memberId);
+      if (!user) return null;
+
+      return {
+        userId: user._id,
+        username: user.username,
+        profileImage: user.profile_image || "",
+        isOnline: user.is_online || false,
+        role: user.role || "member", // Default role if not specified
+        lastActive: user.last_active || new Date(),
+      };
+    });
+
+    // Filter out any null values from users that weren't found
+    const memberDetails = (await Promise.all(memberPromises)).filter(
+      (member) => member !== null
+    );
+
+    return memberDetails;
+  } catch (error) {
+    console.error("Error in getGroupMemberDetails:", error);
+    throw error;
+  }
+}
+
 module.exports = {
   createMongoGroupChat,
   getMongoGroupChats,
@@ -71,4 +109,5 @@ module.exports = {
   existMongoGroupChatById,
   joinMongoGroupChat,
   getGroupsForUser,
+  getGroupMemberDetails, // Export the new function
 };

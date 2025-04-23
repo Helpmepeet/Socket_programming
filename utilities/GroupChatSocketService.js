@@ -6,6 +6,7 @@ const {
   getMongoGroupByChatId,
   joinMongoGroupChat,
   getGroupsForUser,
+  getGroupMemberDetails,
 } = require("../mongo_services/GroupChatMongoService");
 
 const {
@@ -24,50 +25,25 @@ class GroupChatService {
     this.io = io;
 
     socket.on("getGroups", () => this.getGroups());
-    // client site
-    // socket.on("group", userListener);
-    // socket.on("get_groups_response", (res: any) => console.log(res.message));
-    // socket.emit("getGroups");
-
     socket.on("getGroupById", (chatId) => this.getGroupById(chatId));
-    // client site
-    // socket.on("group", userListener);
-    // socket.on("get_group_by_id_response", (res: any) => console.log(res.message));
-    // socket.emit("getGroupById", chatId);
-
     socket.on("createGroup", ({ groupName, userId }) =>
       this.createGroup(groupName, userId)
     );
-    // client site
-    // socket.on("create_group_response", (res: any) => console.log(res.message));
-    // socket.emit("createGroup", groupName);
-
-    // update information = type ["Direct", "Group"] + chat id + new background image
     socket.on("updateBackground", (updateInfo) =>
       this.updateBackground(updateInfo)
     );
-    // client site
-    // socket.on("update_background_response", (res: any) => console.log(res.message));
-    // socket.emit("updateBackground", updateInfo);
-
-    // ids = myUserId + chatId
     socket.on("getDirectByChatId", (ids) => this.getDirectByChatId(ids));
-    // socket.on("get_direct_by_chat_id_response", (res: any) => console.log(res.message));
-    // socket.emit("getDirectByChatId", ids);
-
-    // ids = myUserId + userId
     socket.on("getDirectByUserId", (ids) => this.getDirectByUserId(ids));
-    // socket.on("get_direct_by_user_id_response", (res: any) => console.log(res.message));
-    // socket.emit("getDirectByUserId", ids);
-
     socket.on("joinGroup", ({ groupId, userId }) =>
       this.joinGroup(groupId, userId)
     );
-
     socket.on("get_my_groups", async (userId) => {
       const groups = await getGroupsForUser(userId);
       socket.emit("my_groups", groups);
     });
+
+    // New event handler for getting group members
+    socket.on("getGroupMembers", (chatId) => this.getGroupMembers(chatId));
   }
 
   getGroups() {
@@ -94,6 +70,24 @@ class GroupChatService {
       members: group.members,
     };
     this.io.sockets.emit("group", new_group);
+  }
+
+  // New method to get and send group member details
+  async getGroupMembers(chatId) {
+    try {
+      const memberDetails = await getGroupMemberDetails(chatId);
+
+      this.socket.emit("get_group_members_response", {
+        message: "Success",
+      });
+
+      this.socket.emit("group_members", memberDetails);
+    } catch (error) {
+      console.error("Error fetching group members:", error);
+      this.socket.emit("get_group_members_response", {
+        message: "Error fetching group members",
+      });
+    }
   }
 
   createGroup(groupName, userId) {
@@ -156,7 +150,7 @@ class GroupChatService {
           return;
         }
 
-        // valid caht id and update background
+        // valid chat id and update background
         this.socket.emit("update_background_response", { message: "Success" });
         updateMongoChatBackgroundImageByChatId({
           type: type,
@@ -190,8 +184,8 @@ class GroupChatService {
     });
   }
 
-  joinGroup(groupName, userId) {
-    joinMongoGroupChat(groupName, userId)
+  joinGroup(groupId, userId) {
+    joinMongoGroupChat(groupId, userId)
       .then((group) => {
         if (!group) {
           this.socket.emit("join_group_response", {
@@ -212,6 +206,9 @@ class GroupChatService {
           groupId: group._id,
           members: group.members,
         });
+
+        // Notify all clients that the group has been updated
+        this.sendGroup(group);
       })
       .catch((err) => {
         this.socket.emit("join_group_response", {
